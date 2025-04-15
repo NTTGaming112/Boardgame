@@ -1,0 +1,9 @@
+[build]
+  command = "pnpm build"
+  publish = "dist"
+  environment = { NPM_CONFIG_PACKAGE_MANAGER = "pnpm" }
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
