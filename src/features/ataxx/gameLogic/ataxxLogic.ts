@@ -1,5 +1,6 @@
 // src/features/ataxx/gameLogic/ataxxLogic.ts
-import { BoardState, CellState, Position, GameState, Side } from "../types";
+import { BoardState, Position, Side } from "../types";
+
 import { layouts } from "../maps";
 
 const BOARD_SIZE = 7;

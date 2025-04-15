@@ -22,8 +22,6 @@ interface GameScreenProps {
 
 const GameScreen: React.FC<GameScreenProps> = ({
   boardLayout,
-  playerSide,
-  gameType,
 }) => {
   const navigate = useNavigate();
   const [gameState, setGameState] = useState<GameState>({
