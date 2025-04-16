@@ -99,7 +99,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
           onClose={() => setShowGameOver(false)}
         />
       )}
-      <div className="text-white text-xl mb-4 w-full max-w-md">
+      <div className="flex flex-row justify-between text-white text-xl mb-4 w-full max-w-md">
         <div className="flex items-center space-x-3 mb-2">
           <Avatar className="w-10 h-10">
             <AvatarFallback className="bg-yellow-400 text-black">
@@ -114,20 +114,20 @@ const GameScreen: React.FC<GameScreenProps> = ({
           </Avatar>
           <span>Red Score: {gameState.redScore}</span>
         </div>
-        <div className="flex items-center space-x-3">
-          <Avatar className="w-10 h-10">
-            <AvatarFallback
-              className={
-                gameState.currentPlayer === "yellow"
-                  ? "bg-yellow-400 text-black"
-                  : "bg-red-500 text-white"
-              }
-            >
-              {gameState.currentPlayer === "yellow" ? "Y" : "R"}
-            </AvatarFallback>
-          </Avatar>
-          <span>Current Player: {gameState.currentPlayer}</span>
-        </div>
+      </div>
+      <div className="flex text-white items-center space-x-3 space-y-3">
+        <Avatar className="w-10 h-10">
+          <AvatarFallback
+            className={
+              gameState.currentPlayer === "yellow"
+                ? "bg-yellow-400 text-black"
+                : "bg-red-500 text-white"
+            }
+          >
+            {gameState.currentPlayer === "yellow" ? "Y" : "R"}
+          </AvatarFallback>
+        </Avatar>
+        <span>Current Player: {gameState.currentPlayer}</span>
       </div>
       <Board
         board={gameState.board}
