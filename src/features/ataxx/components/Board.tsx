@@ -1,4 +1,3 @@
-// src/features/ataxx/components/Board.tsx
 import { useState } from "react";
 import { BoardState, Position, Side } from "../types";
 import { getValidMoves } from "../gameLogic/ataxxLogic";
@@ -7,14 +6,31 @@ interface BoardProps {
   board: BoardState;
   currentPlayer: Side;
   onMove: (from: Position, to: Position) => void;
+  gameType: "single" | "multi" | "bot-vs-bot";
+  playerSide: Side;
 }
 
-const Board: React.FC<BoardProps> = ({ board, currentPlayer, onMove }) => {
+const Board: React.FC<BoardProps> = ({
+  board,
+  currentPlayer,
+  onMove,
+  gameType,
+  playerSide,
+}) => {
   const [selected, setSelected] = useState<Position | null>(null);
   const [validMoves, setValidMoves] = useState<Position[]>([]);
 
   const handleCellClick = (row: number, col: number) => {
     const clickedPosition = { row, col };
+    const cell = board[row][col];
+
+    // Trong single player, không cho phép nhấn vào ô của bot
+    if (gameType === "single") {
+      const botSide = playerSide === "yellow" ? "red" : "yellow";
+      if (cell === botSide) {
+        return; // Chặn sự kiện nhấn
+      }
+    }
 
     if (selected) {
       const isValid = validMoves.some(
@@ -28,7 +44,7 @@ const Board: React.FC<BoardProps> = ({ board, currentPlayer, onMove }) => {
       setSelected(null);
       setValidMoves([]);
     } else {
-      if (board[row][col] === currentPlayer) {
+      if (cell === currentPlayer) {
         setSelected(clickedPosition);
         const moves = getValidMoves(board, clickedPosition, currentPlayer);
         setValidMoves(moves);
@@ -44,30 +60,37 @@ const Board: React.FC<BoardProps> = ({ board, currentPlayer, onMove }) => {
     <div className="grid gap-1 bg-gray-800 p-2 rounded-lg">
       {board.map((row, rowIndex) => (
         <div key={rowIndex} className="flex gap-1">
-          {row.map((cell, colIndex) => (
-            <div
-              key={`${rowIndex}-${colIndex}`}
-              onClick={() => handleCellClick(rowIndex, colIndex)}
-              className={`w-12 h-12 flex items-center justify-center border-2 rounded cursor-pointer
-                ${cell === "empty" ? "bg-gray-300" : ""}
-                ${cell === "yellow" ? "bg-yellow-400" : ""}
-                ${cell === "red" ? "bg-red-500" : ""}
-                ${cell === "block" ? "bg-black" : ""}
-                ${
-                  selected?.row === rowIndex && selected?.col === colIndex
-                    ? "border-blue-500"
-                    : ""
-                }
-                ${
-                  isValidMoveCell(rowIndex, colIndex)
-                    ? "border-green-500 animate-pulse"
-                    : "border-gray-500"
-                }
-              `}
-            >
-              {cell === "block" && <span className="text-white">X</span>}
-            </div>
-          ))}
+          {row.map((cell, colIndex) => {
+            const isBotCell =
+              gameType === "single" &&
+              currentPlayer === playerSide &&
+              cell === (playerSide === "yellow" ? "red" : "yellow");
+
+            return (
+              <div
+                key={`${rowIndex}-${colIndex}`}
+                onClick={() => handleCellClick(rowIndex, colIndex)}
+                className={`w-12 h-12 flex items-center justify-center border-2 rounded
+                  ${cell === "empty" ? "bg-gray-300" : ""}
+                  ${cell === "yellow" ? "bg-yellow-400" : ""}
+                  ${cell === "red" ? "bg-red-500" : ""}
+                  ${cell === "block" ? "bg-black" : ""}
+                  ${
+                    selected?.row === rowIndex && selected?.col === colIndex
+                      ? "border-blue-500"
+                      : ""
+                  }
+                  ${
+                    isValidMoveCell(rowIndex, colIndex)
+                      ? "border-green-500 animate-pulse"
+                      : "border-gray-500"
+                  }
+                  ${isBotCell ? "cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                {cell === "block" && <span className="text-white">X</span>}
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>

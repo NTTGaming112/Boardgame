@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/ui/button";
 import { Avatar, AvatarFallback } from "@/ui/avatar";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Board from "../components/Board";
 import Notification from "@/ui/Notification";
 import {
@@ -17,13 +17,17 @@ import { GameState, Side, Position } from "../types";
 interface GameScreenProps {
   boardLayout: number;
   playerSide: Side;
-  gameType: "single" | "multi";
+  gameType: "single" | "multi" | "bot-vs-bot";
 }
 
-const GameScreen: React.FC<GameScreenProps> = ({
-  boardLayout,
-}) => {
+const GameScreen: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Lấy thông tin từ SetupScreen.tsx
+  const { gameType, boardLayout, playerSide } =
+    location.state as GameScreenProps;
+
   const [gameState, setGameState] = useState<GameState>({
     board: initializeBoard(boardLayout),
     currentPlayer: "yellow",
@@ -33,7 +37,14 @@ const GameScreen: React.FC<GameScreenProps> = ({
     winner: null,
   });
   const [showGameOver, setShowGameOver] = useState(false);
+  const [moveHistory, setMoveHistory] = useState<
+    { from: Position; to: Position }[]
+  >([]);
 
+  // API URL từ biến môi trường (local hoặc production)
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+  // Cập nhật điểm số mỗi khi board thay đổi
   useEffect(() => {
     const scores = calculateScores(gameState.board);
     setGameState((prev) => ({
@@ -43,6 +54,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
     }));
   }, [gameState.board]);
 
+  // Kiểm tra game kết thúc và lưu ván chơi lên backend
   useEffect(() => {
     if (checkGameOver(gameState.board)) {
       const winner = determineWinner(gameState.board);
@@ -52,12 +64,164 @@ const GameScreen: React.FC<GameScreenProps> = ({
         winner,
       }));
       setShowGameOver(true);
+
+      // Gửi dữ liệu ván chơi lên backend
+      fetch(
+        `${API_URL}${
+          API_URL.includes("cloudfunctions") ? "/save_game" : "/games/"
+        }`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            board_states: [
+              initializeBoard(boardLayout),
+              ...moveHistory.map((_, i) => {
+                let board = initializeBoard(boardLayout);
+                for (let j = 0; j <= i; j++) {
+                  const { from, to } = moveHistory[j];
+                  board = makeMove(
+                    board,
+                    from,
+                    to,
+                    j % 2 === 0 ? "yellow" : "red"
+                  );
+                }
+                return board;
+              }),
+            ],
+            moves: moveHistory.map((m) => ({ from_pos: m.from, to_pos: m.to })),
+            winner: winner || "draw",
+          }),
+        }
+      ).catch((err) => console.error("Error saving game:", err));
+
+      if (gameType === "bot-vs-bot") {
+        // Restart game for bot-vs-bot
+        setTimeout(() => {
+          setGameState({
+            board: initializeBoard(boardLayout),
+            currentPlayer: "yellow",
+            yellowScore: 0,
+            redScore: 0,
+            gameOver: false,
+            winner: null,
+          });
+          setMoveHistory([]);
+        }
+          , 2000); // Delay 2 seconds before restarting
+      }
     }
   }, [gameState.board]);
+
+  // Logic gọi API để lấy nước đi từ bot trong chế độ single player
+  useEffect(() => {
+    if (
+      gameType === "single" &&
+      !gameState.gameOver &&
+      gameState.currentPlayer !== playerSide
+    ) {
+      console.log("Bot's turn to move");
+      const botPlayer = playerSide === "yellow" ? "red" : "yellow";
+      setTimeout(async () => {
+        try {
+          const response = await fetch(
+            `${API_URL}${
+              API_URL.includes("cloudfunctions")
+                ? "/get_bot_move"
+                : "/bot-move/"
+            }`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                board: gameState.board,
+                current_player: botPlayer,
+              }),
+            }
+          );
+          const data = await response.json();
+          let move;
+          if (API_URL.includes("cloudfunctions")) {
+            if (data.statusCode !== 200) {
+              throw new Error(data.body);
+            }
+            move = data.body;
+          } else {
+            move = data;
+          }
+          if (move) {
+            handleMove(move.from, move.to);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        } catch (err) {
+          console.error("Error getting bot move:", err);
+        }
+      }, 500);
+    }
+  }, [gameState.currentPlayer, gameState.gameOver]);
+
+  // Logic call api bot-vs-bot
+  useEffect(() => {
+    if (gameType === "bot-vs-bot" && !gameState.gameOver) {
+      const botPlayer = gameState.currentPlayer;
+
+      const timeout = setTimeout(async () => {
+        try {
+          const response = await fetch(
+            `${API_URL}${
+              API_URL.includes("cloudfunctions")
+                ? "/get_bot_move"
+                : "/bot-move/"
+            }`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                board: gameState.board,
+                current_player: botPlayer,
+              }),
+            }
+          );
+
+          const data = await response.json();
+
+          let move;
+          if (API_URL.includes("cloudfunctions")) {
+            if (data.statusCode !== 200) {
+              throw new Error(data.body);
+            }
+            move = data.body;
+          } else {
+            move = data;
+          }
+
+          if (move) {
+            handleMove(move.from, move.to);
+          }
+        } catch (err) {
+          console.error(`Error getting ${botPlayer} bot move:`, err);
+        }
+      }, 600); // Delay giữa mỗi lượt bot, có thể chỉnh
+
+      return () => clearTimeout(timeout);
+    }
+  }, [gameState.currentPlayer, gameState.board, gameState.gameOver, gameType]);
+
 
   const handleMove = (from: Position, to: Position) => {
     if (gameState.gameOver) return;
 
+    // Kiểm tra nếu đang ở chế độ single player và đến lượt người chơi
+    if (gameType === "single" && gameState.currentPlayer === playerSide) {
+      // Chỉ cho phép di chuyển ô của playerSide
+      if (gameState.board[from.row][from.col] !== playerSide) {
+        console.log(`You can only move your own pieces (${playerSide})!`);
+        return;
+      }
+    }
+
+    // Kiểm tra nước đi hợp lệ và thực hiện di chuyển
     if (isValidMove(gameState.board, from, to, gameState.currentPlayer)) {
       const newBoard = makeMove(
         gameState.board,
@@ -70,6 +234,8 @@ const GameScreen: React.FC<GameScreenProps> = ({
         board: newBoard,
         currentPlayer: prev.currentPlayer === "yellow" ? "red" : "yellow",
       }));
+      // Lưu nước đi vào moveHistory
+      setMoveHistory((prev) => [...prev, { from, to }]);
     }
   };
 
@@ -82,6 +248,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
       gameOver: false,
       winner: null,
     });
+    setMoveHistory([]); // Reset moveHistory
     setShowGameOver(false);
   };
 
@@ -133,6 +300,8 @@ const GameScreen: React.FC<GameScreenProps> = ({
         board={gameState.board}
         currentPlayer={gameState.currentPlayer}
         onMove={handleMove}
+        gameType={gameType}
+        playerSide={playerSide}
       />
       <div className="flex space-x-4 mt-4">
         <Button

@@ -36,6 +36,15 @@ const GameTypeSelector: React.FC<GameTypeSelectorProps> = ({
             </div>
           </Label>
         </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="bot-vs-bot" id="bot-vs-bot" />
+          <Label htmlFor="bot-vs-bot">
+            <div className="flex items-center space-x-1">
+              <span className="text-2xl">💻</span>
+              <span className="text-2xl">💻</span>
+            </div>
+          </Label>
+        </div>
       </RadioGroup>
     </div>
   );

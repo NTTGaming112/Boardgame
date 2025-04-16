@@ -4,7 +4,7 @@ export interface BoardLayout {
 }
 
 export type Side = "yellow" | "red";
-export type GameType = "single" | "multi";
+export type GameType = "single" | "multi" | "bot-vs-bot";
 
 // Trạng thái ô trên bàn cờ
 export type CellState = "yellow" | "red" | "empty" | "block";
