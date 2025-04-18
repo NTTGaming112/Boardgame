@@ -20,7 +20,7 @@ interface GameScreenProps {
   gameType: "single" | "multi" | "bot-vs-bot";
 }
 
-const GameScreen: React.FC = () => {
+const GameScreen: React.FC<GameScreenProps> = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { gameType, boardLayout, playerSide } =
