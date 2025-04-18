@@ -84,7 +84,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       setShowGameOver(true);
 
       const saveEndpoint = `${API_URL}${
-        API_URL.includes("vercel") ? "/save_game" : "/games/"
+        API_URL.includes("vercel") ? "/save_game" : "/save_game/"
       }`;
 
       const boardStates = [
@@ -189,12 +189,13 @@ const GameScreen: React.FC<GameScreenProps> = () => {
 
   const handleTrain = () => { 
     const endpoint = `${API_URL}${
-      API_URL.includes("vercel") ? "/train_mcts" : "/train_mcts/"
+      API_URL.includes("vercel") ? "/train_mcts" : "/train_mcts_route/"
     }`;
 
     fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
     })
       .then((response) => response.json())
       .then((data) => console.log("Training response:", data))
