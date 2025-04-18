@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/ui/button";
 import { Avatar, AvatarFallback } from "@/ui/avatar";
-import { useLocation, useNavigate } from "react-router-dom";
+import { data, useLocation, useNavigate } from "react-router-dom";
 import Board from "../components/Board";
 import Notification from "@/ui/Notification";
 import {
@@ -65,6 +65,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       });
 
       const data = await response.json();
+      console.log("Bot move data:", data);
       return API_URL.includes("vercel") ? data : data.body;
     } catch (err) {
       console.error(`Error getting bot move:`, err);
@@ -112,7 +113,11 @@ const GameScreen: React.FC<GameScreenProps> = () => {
           moves,
           winner: winner || "draw",
         }),
-      }).catch((err) => console.error("Error saving game:", err));
+      })
+        .then((response) => response.json())
+        .then((data) => console.log("Save game response:", data))
+        .catch((err) => console.error("Error saving game:", err));
+
 
       if (gameType === "bot-vs-bot") {
         setTimeout(() => {
@@ -188,6 +193,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
   };
 
   const handleTrain = () => { 
+    console.log("Training bot...");
     const endpoint = `${API_URL}${
       API_URL.includes("vercel") ? "/train_mcts" : "/train_mcts_route/"
     }`;
