@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/ui/button";
 import { Avatar, AvatarFallback } from "@/ui/avatar";
-import { data, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Board from "../components/Board";
 import Notification from "@/ui/Notification";
 import {
