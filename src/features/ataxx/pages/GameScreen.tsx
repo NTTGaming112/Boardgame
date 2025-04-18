@@ -187,6 +187,20 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     }
   };
 
+  const handleTrain = () => { 
+    const endpoint = `${API_URL}${
+      API_URL.includes("vercel") ? "/train_mcts" : "/train_mcts/"
+    }`;
+
+    fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((response) => response.json())
+      .then((data) => console.log("Training response:", data))
+      .catch((error) => console.error("Error training bot:", error));
+  };
+
   const handleRestart = () => {
     setGameState({
       board: initializeBoard(boardLayout),
@@ -261,6 +275,12 @@ const GameScreen: React.FC<GameScreenProps> = () => {
           className="bg-gray-600 hover:bg-gray-700 text-white"
         >
           Back to Setup
+        </Button>
+        <Button
+          onClick={handleTrain}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          Train Bot
         </Button>
       </div>
     </div>
