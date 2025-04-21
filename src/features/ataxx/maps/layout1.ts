@@ -10,6 +10,3 @@ layout1[0][0] = "yellow"; // Góc trên trái: Yellow
 layout1[0][BOARD_SIZE - 1] = "red"; // Góc trên phải: Red
 layout1[BOARD_SIZE - 1][0] = "red"; // Góc dưới trái: Red
 layout1[BOARD_SIZE - 1][BOARD_SIZE - 1] = "yellow"; // Góc dưới phải: Yellow
-
-// Ô chặn ở giữa
-layout1[3][3] = "block";

@@ -19,7 +19,7 @@ const GameTypeSelector: React.FC<GameTypeSelectorProps> = ({
         onValueChange={onGameTypeChange}
         className="flex justify-center space-x-4"
       >
-        <div className="flex items-center space-x-2">
+        {/* <div className="flex items-center space-x-2">
           <RadioGroupItem value="single" id="single" />
           <Label htmlFor="single">
             <div className="flex items-center space-x-1">
@@ -27,7 +27,7 @@ const GameTypeSelector: React.FC<GameTypeSelectorProps> = ({
               <span className="text-2xl">💻</span>
             </div>
           </Label>
-        </div>
+        </div> */}
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="multi" id="multi" />
           <Label htmlFor="multi">

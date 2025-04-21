@@ -13,6 +13,7 @@ export const routes: RouteObject[] = [
     path: "/setup",
     element: <SetupScreen />,
   },
+  
   {
     path: "/game",
     element: (
