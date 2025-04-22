@@ -11,15 +11,16 @@ import {
   makeMove,
   checkGameOver,
   determineWinner,
+  hasValidMoves,
 } from "../gameLogic/ataxxLogic";
-import { GameState, Side, Position, BoardState } from "../types";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
+import { GameState, Side, Position } from "../types";
 import { Input } from "@/ui/input";
+import BotSettings from "../components/BotSetting";
 
 interface GameScreenProps {
   boardLayout: number;
   playerSide: Side;
-  gameType: "single" | "multi" | "bot-vs-bot";
+  gameType: "multi" | "bot-vs-bot";
 }
 
 const GameScreen: React.FC<GameScreenProps> = () => {
@@ -40,10 +41,27 @@ const GameScreen: React.FC<GameScreenProps> = () => {
   const [moveHistory, setMoveHistory] = useState<
     { from: Position; to: Position }[]
   >([]);
-  const [algorithm, setAlgorithm] = useState<string>("mcts"); // Mặc định là MCTS
-  const [iterations, setIterations] = useState<number>(300); // Số lượng mô phỏng
-  const [numGames, setNumGames] = useState<number>(1); // Số ván chơi
+  const [numGames, setNumGames] = useState<number>(1);
+  const [algorithm, setAlgorithm] = useState<{ yellow: string; red: string }>({
+    yellow: "mcts",
+    red: "mcts",
+  });
+  const [iterations, setIterations] = useState<{ yellow: number; red: number }>(
+    {
+      yellow: 300,
+      red: 300,
+    }
+  );
   const [isPlayingBotVsBot, setIsPlayingBotVsBot] = useState(false);
+  const [scoreboard, setScoreboard] = useState<{
+    yellowWins: number;
+    redWins: number;
+    draws: number;
+  }>({
+    yellowWins: 0,
+    redWins: 0,
+    draws: 0,
+  });
   const [gameResults, setGameResults] = useState<
     {
       winner: string;
@@ -64,51 +82,70 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     }));
   }, [gameState.board]);
 
-  // Hàm gọi API bot move
-  const fetchBotMove = async (board: BoardState, currentPlayer: Side) => {
-    try {
-      const endpoint = `${API_URL}${
-        API_URL.includes("vercel") ? "/bot-move/" : "/get_bot_move"
-      }`;
+  // Hàm lưu game vào backend
+  const saveGameToBackend = async (winner: string | null) => {
+    const saveEndpoint = `${API_URL}${
+      API_URL.includes("vercel") ? "/save_game" : "/save_game/"
+    }`;
 
-      const response = await fetch(endpoint, {
+    const boardStates = [
+      initializeBoard(boardLayout),
+      ...moveHistory.map((_, i) => {
+        let board = initializeBoard(boardLayout);
+        for (let j = 0; j <= i; j++) {
+          const { from, to } = moveHistory[j];
+          board = makeMove(board, from, to, j % 2 === 0 ? "yellow" : "red");
+        }
+        return board;
+      }),
+    ];
+
+    const moves = moveHistory.map((m) => ({
+      from_pos: m.from,
+      to_pos: m.to,
+    }));
+
+    try {
+      const response = await fetch(saveEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          board,
-          current_player: currentPlayer,
-          iterations,
+          board_states: boardStates,
+          moves,
+          winner: winner || "draw",
         }),
       });
-
       const data = await response.json();
-      console.log("Bot move data:", data);
-      return API_URL.includes("vercel") ? data : data.body;
+      console.log("Save game response:", data);
     } catch (err) {
-      console.error(`Error getting bot move:`, err);
-      return null;
+      console.error("Error saving game:", err);
     }
   };
 
   // Hàm gọi API play_bot_vs_bot
   const fetchBotVsBotGame = async () => {
-    try {
-      const endpoint = `${API_URL}${
-        API_URL.includes("vercel") ? "/play_bot_vs_bot/" : "/play_bot_vs_bot"
-      }`;
+    const endpoint = `${API_URL}${
+      API_URL.includes("vercel") ? "/play_bot_vs_bot/" : "/play_bot_vs_bot"
+    }`;
 
+    try {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           board: initializeBoard(boardLayout),
-          iterations,
-          algorithm,
+          yellow: {
+            algorithm: algorithm.yellow,
+            iterations: iterations.yellow,
+          },
+          red: {
+            algorithm: algorithm.red,
+            iterations: iterations.red,
+          },
         }),
       });
 
       const data = await response.json();
-      console.log("Bot vs Bot game result:", data);
       if (data.error) {
         throw new Error(data.error);
       }
@@ -130,39 +167,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       }));
       setShowGameOver(true);
 
-      const saveEndpoint = `${API_URL}${
-        API_URL.includes("vercel") ? "/save_game" : "/save_game/"
-      }`;
-
-      const boardStates = [
-        initializeBoard(boardLayout),
-        ...moveHistory.map((_, i) => {
-          let board = initializeBoard(boardLayout);
-          for (let j = 0; j <= i; j++) {
-            const { from, to } = moveHistory[j];
-            board = makeMove(board, from, to, j % 2 === 0 ? "yellow" : "red");
-          }
-          return board;
-        }),
-      ];
-
-      const moves = moveHistory.map((m) => ({
-        from_pos: m.from,
-        to_pos: m.to,
-      }));
-
-      fetch(saveEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          board_states: boardStates,
-          moves,
-          winner: winner || "draw",
-        }),
-      })
-        .then((response) => response.json())
-        .then((data) => console.log("Save game response:", data))
-        .catch((err) => console.error("Error saving game:", err));
+      saveGameToBackend(winner);
 
       if (gameType === "bot-vs-bot") {
         setTimeout(() => {
@@ -180,36 +185,23 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     }
   }, [gameState.board]);
 
-  // Bot move cho chế độ single
-  // useEffect(() => {
-  //   if (
-  //     gameType === "single" &&
-  //     !gameState.gameOver &&
-  //     gameState.currentPlayer !== playerSide
-  //   ) {
-  //     const botPlayer = playerSide === "yellow" ? "red" : "yellow";
-  //     setTimeout(async () => {
-  //       const move = await fetchBotMove(gameState.board, botPlayer);
-  //       if (move) {
-  //         handleMove(move.from, move.to);
-  //         await new Promise((r) => setTimeout(r, 1000));
-  //       }
-  //     }, 500);
-  //   }
-  // }, [gameState.currentPlayer, gameState.gameOver]);
+  // Kiểm tra và chuyển lượt nếu người chơi hiện tại không có nước đi hợp lệ
+  useEffect(() => {
+    if (gameState.gameOver) return;
 
-  // Bot-vs-bot tự chơi
-  // useEffect(() => {
-  //   if (gameType === "bot-vs-bot" && !gameState.gameOver) {
-  //     const botPlayer = gameState.currentPlayer;
-  //     const timeout = setTimeout(async () => {
-  //       const move = await fetchBotMove(gameState.board, botPlayer);
-  //       if (move) handleMove(move.from, move.to);
-  //     }, 600);
-
-  //     return () => clearTimeout(timeout);
-  //   }
-  // }, [gameState.currentPlayer, gameState.board, gameState.gameOver, gameType]);
+    const currentPlayerHasMoves = hasValidMoves(
+      gameState.board,
+      gameState.currentPlayer
+    );
+    if (!currentPlayerHasMoves) {
+      const nextPlayer =
+        gameState.currentPlayer === "yellow" ? "red" : "yellow";
+      setGameState((prev) => ({
+        ...prev,
+        currentPlayer: nextPlayer,
+      }));
+    }
+  }, [gameState.board, gameState.currentPlayer, gameState.gameOver]);
 
   const handleMove = (from: Position, to: Position) => {
     if (gameState.gameOver) return;
@@ -221,32 +213,18 @@ const GameScreen: React.FC<GameScreenProps> = () => {
         to,
         gameState.currentPlayer
       );
+      const nextPlayer =
+        gameState.currentPlayer === "yellow" ? "red" : "yellow";
       setGameState((prev) => ({
         ...prev,
         board: newBoard,
-        currentPlayer: prev.currentPlayer === "yellow" ? "red" : "yellow",
+        currentPlayer: nextPlayer,
       }));
       setMoveHistory((prev) => [...prev, { from, to }]);
     }
   };
 
-  const handleTrain = () => {
-    console.log("Training bot...");
-    const endpoint = `${API_URL}${
-      API_URL.includes("vercel") ? "/train_mcts" : "/train_mcts_route/"
-    }`;
-
-    fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    })
-      .then((response) => response.json())
-      .then((data) => console.log("Training response:", data))
-      .catch((error) => console.error("Error training bot:", error));
-  };
-
-  const handleRestart = () => {
+  const resetGameState = () => {
     setGameState({
       board: initializeBoard(boardLayout),
       currentPlayer: "yellow",
@@ -257,18 +235,48 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     });
     setMoveHistory([]);
     setShowGameOver(false);
+    setGameResults([]);
+    setScoreboard({ yellowWins: 0, redWins: 0, draws: 0 });
+    setIsPlayingBotVsBot(false);
+  };
+
+  const handleRestart = () => {
+    resetGameState();
   };
 
   const handleBack = () => navigate("/setup");
 
+  const updateScoreboard = (results: { winner: string }[]) => {
+    const newScoreboard = {
+      yellowWins: 0,
+      redWins: 0,
+      draws: 0,
+    };
+
+    results.forEach((result) => {
+      if (result.winner === "yellow") newScoreboard.yellowWins += 1;
+      else if (result.winner === "red") newScoreboard.redWins += 1;
+      else newScoreboard.draws += 1;
+    });
+
+    setScoreboard(newScoreboard);
+  };
+
   const handleStartBotVsBot = async () => {
+    if (numGames < 1) return;
+
     setIsPlayingBotVsBot(true);
     setGameResults([]);
+    setScoreboard({ yellowWins: 0, redWins: 0, draws: 0 });
+
     try {
+      const results: typeof gameResults = [];
       for (let i = 0; i < numGames; i++) {
         const result = await fetchBotVsBotGame();
         if (result) {
-          setGameResults((prev) => [...prev, result]);
+          results.push(result);
+          setGameResults(results);
+          updateScoreboard(results);
           setGameState((prev) => ({
             ...prev,
             board: result.board,
@@ -277,10 +285,10 @@ const GameScreen: React.FC<GameScreenProps> = () => {
             gameOver: true,
             winner: result.winner,
           }));
-          setShowGameOver(true);
-          await new Promise((resolve) => setTimeout(resolve, 2000)); // Đợi 2 giây trước khi chơi ván tiếp theo
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
+      setShowGameOver(true);
     } catch (error) {
       console.error("Error in bot vs bot games:", error);
     } finally {
@@ -290,6 +298,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
 
   return (
     <div className="flex flex-row justify-center min-h-screen bg-green-700 gap-10">
+      {/* Bảng game bên trái */}
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         {showGameOver && (
           <Notification
@@ -353,44 +362,33 @@ const GameScreen: React.FC<GameScreenProps> = () => {
           </Button>
         </div>
       </div>
+
+      {/* Settings bên phải cho chế độ bot-vs-bot */}
       {gameType === "bot-vs-bot" && (
         <div className="flex flex-col ml-8 p-4 text-white rounded-lg w-64 justify-center items-center">
           <h3 className="text-lg font-bold mb-4">Settings</h3>
-
-          {/* Chọn thuật toán */}
-          <div className="mb-4">
-            <label className="block mb-1">Algorithm:</label>
-            <Select
-              onValueChange={(value) => setAlgorithm(value)}
-              defaultValue="mcts"
-            >
-              <SelectTrigger className="w-full bg-gray-700 text-white">
-                <SelectValue placeholder="Select algorithm" />
-              </SelectTrigger>
-              <SelectContent className="bg-gray-700 text-white">
-                <SelectItem value="mcts">MCTS</SelectItem>
-                <SelectItem value="random">Random</SelectItem>
-                {/* Có thể thêm các thuật toán khác nếu backend hỗ trợ */}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Nhập số lượng mô phỏng */}
-          <div className="mb-4">
-            <label className="block mb-1">Number of Simulations:</label>
-            <Input
-              type="number"
-              value={iterations}
-              onChange={(e) =>
-                setIterations(Math.max(1, parseInt(e.target.value) || 300))
-              }
-              min={1}
-              className="w-full bg-gray-700 text-white"
+          <div className="flex flex-row gap-5 w-full">
+            <BotSettings
+              botName="Yellow Bot"
+              color="yellow"
+              algoKey="yellow"
+              algorithm={algorithm}
+              setAlgorithm={setAlgorithm}
+              iterations={iterations}
+              setIterations={setIterations}
+            />
+            <BotSettings
+              botName="Red Bot"
+              color="red"
+              algoKey="red"
+              algorithm={algorithm}
+              setAlgorithm={setAlgorithm}
+              iterations={iterations}
+              setIterations={setIterations}
             />
           </div>
 
-          {/* Nhập số lượng ván chơi */}
-          <div className="mb-4">
+          <div className="w-full mb-4">
             <label className="block mb-1">Number of Games:</label>
             <Input
               type="number"
@@ -403,7 +401,6 @@ const GameScreen: React.FC<GameScreenProps> = () => {
             />
           </div>
 
-          {/* Nút Start */}
           <Button
             onClick={handleStartBotVsBot}
             disabled={isPlayingBotVsBot}
@@ -412,8 +409,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
             {isPlayingBotVsBot ? "Playing..." : "Start"}
           </Button>
 
-          {/* Hiển thị kết quả các ván */}
-          {gameResults.length >= 0 && (
+          {gameResults.length > 0 && (
             <div className="mt-4">
               <h4 className="text-md font-semibold mb-2">Game Results:</h4>
               <ul className="space-y-2">
@@ -424,6 +420,15 @@ const GameScreen: React.FC<GameScreenProps> = () => {
                   </li>
                 ))}
               </ul>
+
+              <div className="mt-4">
+                <h4 className="text-md font-semibold mb-2">Scoreboard:</h4>
+                <div className="bg-gray-700 p-3 rounded">
+                  <p>Yellow Wins: {scoreboard.yellowWins}</p>
+                  <p>Red Wins: {scoreboard.redWins}</p>
+                  <p>Draws: {scoreboard.draws}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>

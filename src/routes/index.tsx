@@ -1,4 +1,3 @@
-// src/routes/index.tsx
 import { RouteObject } from "react-router-dom";
 import HomeScreen from "../features/ataxx/pages/HomeScreen";
 import SetupScreen from "../features/ataxx/pages/SetupScreen";
@@ -17,7 +16,7 @@ export const routes: RouteObject[] = [
   {
     path: "/game",
     element: (
-      <GameScreen boardLayout={1} playerSide="yellow" gameType="single" />
+      <GameScreen boardLayout={1} playerSide="yellow" gameType="multi" />
     ),
   },
 ];

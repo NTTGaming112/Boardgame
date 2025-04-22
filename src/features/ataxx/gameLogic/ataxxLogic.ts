@@ -149,7 +149,7 @@ export const makeMove = (
 };
 
 // Kiểm tra xem còn nước đi hợp lệ nào cho một người chơi không
-const hasValidMoves = (board: BoardState, player: Side): boolean => {
+export const hasValidMoves = (board: BoardState, player: Side): boolean => {
   for (let row = 0; row < BOARD_SIZE; row++) {
     for (let col = 0; col < BOARD_SIZE; col++) {
       if (board[row][col] === player) {
@@ -163,23 +163,18 @@ const hasValidMoves = (board: BoardState, player: Side): boolean => {
 };
 
 // Kiểm tra xem bàn cờ có đầy không
-const isBoardFull = (board: BoardState): boolean => {
+export const isBoardFull = (board: BoardState): boolean => {
   return board.every((row) => row.every((cell) => cell !== "empty"));
 };
 
 // Kiểm tra game kết thúc
 export const checkGameOver = (board: BoardState): boolean => {
   const { yellowScore, redScore } = calculateScores(board);
-
-  // Kết thúc nếu một bên không còn quân
-  if (yellowScore === 0 || redScore === 0) return true;
-
-  // Kết thúc nếu mot trong hai bên không còn nước đi hợp lệ
-  if (!hasValidMoves(board, "yellow") || !hasValidMoves(board, "red"))
-    return true;
-
-  // Kết thúc nếu bàn cờ đầy
-  return isBoardFull(board);
+  return (
+    isBoardFull(board) ||
+    (!hasValidMoves(board, "yellow") && !hasValidMoves(board, "red")) ||
+    (yellowScore === 0 || redScore === 0)
+  );
 };
 
 // Xác định người thắng

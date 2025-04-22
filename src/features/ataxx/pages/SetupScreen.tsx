@@ -13,7 +13,7 @@ const SetupScreen: React.FC = () => {
   const navigate = useNavigate();
   const [selectedBoard, setSelectedBoard] = useState<number | null>(null);
   const [selectedSide, setSelectedSide] = useState<Side>("yellow");
-  const [gameType, setGameType] = useState<GameType>("single");
+  const [gameType, setGameType] = useState<GameType>("multi");
   const [showAlert, setShowAlert] = useState(false); // State để hiển thị Alert
 
   const handleStartGame = () => {
