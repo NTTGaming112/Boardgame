@@ -43,13 +43,13 @@ const GameScreen: React.FC<GameScreenProps> = () => {
   >([]);
   const [numGames, setNumGames] = useState<number>(1);
   const [algorithm, setAlgorithm] = useState<{ yellow: string; red: string }>({
-    yellow: "mcts",
-    red: "mcts",
+    yellow: "mcts-binary",
+    red: "mcts-binary",
   });
   const [iterations, setIterations] = useState<{ yellow: number; red: number }>(
     {
-      yellow: 300,
-      red: 300,
+      yellow: 100,
+      red: 100,
     }
   );
   const [isPlayingBotVsBot, setIsPlayingBotVsBot] = useState(false);
@@ -83,24 +83,24 @@ const GameScreen: React.FC<GameScreenProps> = () => {
   }, [gameState.board]);
 
   // Hàm lưu game vào backend
-  const saveGameToBackend = async (winner: string | null) => {
+  const saveGameToBackend = async (winner: string | null, moves: any[]) => {
     const saveEndpoint = `${API_URL}${
       API_URL.includes("vercel") ? "/save_game" : "/save_game/"
     }`;
 
     const boardStates = [
       initializeBoard(boardLayout),
-      ...moveHistory.map((_, i) => {
+      ...moves.map((move, i) => {
         let board = initializeBoard(boardLayout);
         for (let j = 0; j <= i; j++) {
-          const { from, to } = moveHistory[j];
+          const { from, to } = moves[j];
           board = makeMove(board, from, to, j % 2 === 0 ? "yellow" : "red");
         }
         return board;
       }),
     ];
 
-    const moves = moveHistory.map((m) => ({
+    const formattedMoves = moves.map((m) => ({
       from_pos: m.from,
       to_pos: m.to,
     }));
@@ -111,7 +111,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           board_states: boardStates,
-          moves,
+          moves: formattedMoves,
           winner: winner || "draw",
         }),
       });
@@ -156,8 +156,53 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     }
   };
 
-  // Khi kết thúc game
+  // Hàm replay các nước đi từ API
+  const replayMoves = async (
+    moves: { player: Side; move: { from: Position; to: Position } }[]
+  ) => {
+    let tempBoard = initializeBoard(boardLayout);
+    setMoveHistory([]); // Reset move history
+    setGameState((prev) => ({
+      ...prev,
+      board: tempBoard,
+      currentPlayer: "yellow",
+      gameOver: false,
+      winner: null,
+    }));
+
+    for (let i = 0; i < moves.length; i++) {
+      const { player, move } = moves[i];
+      const { from, to } = move;
+
+      // Cập nhật bàn cờ
+      tempBoard = makeMove(tempBoard, from, to, player);
+      setGameState((prev) => ({
+        ...prev,
+        board: tempBoard,
+        currentPlayer: player === "yellow" ? "red" : "yellow",
+      }));
+      setMoveHistory((prev) => [...prev, { from, to }]);
+
+      // Chờ 1 giây để hiển thị nước đi
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    // Kiểm tra game over sau khi replay xong
+    if (checkGameOver(tempBoard)) {
+      const winner = determineWinner(tempBoard);
+      setGameState((prev) => ({
+        ...prev,
+        gameOver: true,
+        winner,
+      }));
+      setShowGameOver(true);
+    }
+  };
+
+  // Khi kết thúc game (chỉ áp dụng cho chế độ multi)
   useEffect(() => {
+    if (gameType !== "multi" || gameState.gameOver) return;
+
     if (checkGameOver(gameState.board)) {
       const winner = determineWinner(gameState.board);
       setGameState((prev) => ({
@@ -167,27 +212,13 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       }));
       setShowGameOver(true);
 
-      saveGameToBackend(winner);
-
-      if (gameType === "bot-vs-bot") {
-        setTimeout(() => {
-          setGameState({
-            board: initializeBoard(boardLayout),
-            currentPlayer: "yellow",
-            yellowScore: 0,
-            redScore: 0,
-            gameOver: false,
-            winner: null,
-          });
-          setMoveHistory([]);
-        }, 2000);
-      }
+      saveGameToBackend(winner, moveHistory);
     }
-  }, [gameState.board]);
+  }, [gameState.board, gameType]);
 
-  // Kiểm tra và chuyển lượt nếu người chơi hiện tại không có nước đi hợp lệ
+  // Kiểm tra và chuyển lượt nếu người chơi hiện tại không có nước đi hợp lệ (chế độ multi)
   useEffect(() => {
-    if (gameState.gameOver) return;
+    if (gameType !== "multi" || gameState.gameOver) return;
 
     const currentPlayerHasMoves = hasValidMoves(
       gameState.board,
@@ -201,10 +232,10 @@ const GameScreen: React.FC<GameScreenProps> = () => {
         currentPlayer: nextPlayer,
       }));
     }
-  }, [gameState.board, gameState.currentPlayer, gameState.gameOver]);
+  }, [gameState.board, gameState.currentPlayer, gameState.gameOver, gameType]);
 
   const handleMove = (from: Position, to: Position) => {
-    if (gameState.gameOver) return;
+    if (gameType !== "multi" || gameState.gameOver) return;
 
     if (isValidMove(gameState.board, from, to, gameState.currentPlayer)) {
       const newBoard = makeMove(
@@ -264,7 +295,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
 
   const handleStartBotVsBot = async () => {
     if (numGames < 1) return;
-
+    console.log(algorithm, iterations);
     setIsPlayingBotVsBot(true);
     setGameResults([]);
     setScoreboard({ yellowWins: 0, redWins: 0, draws: 0 });
@@ -274,21 +305,21 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       for (let i = 0; i < numGames; i++) {
         const result = await fetchBotVsBotGame();
         if (result) {
+          // Replay các nước đi
+          await replayMoves(result.moves);
+
+          // Cập nhật kết quả
           results.push(result);
           setGameResults(results);
           updateScoreboard(results);
-          setGameState((prev) => ({
-            ...prev,
-            board: result.board,
-            yellowScore: result.scores.yellowScore,
-            redScore: result.scores.redScore,
-            gameOver: true,
-            winner: result.winner,
-          }));
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Lưu game vào backend
+          await saveGameToBackend(result.winner, result.moves);
+
+          // Chờ 2 giây trước khi bắt đầu ván tiếp theo
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
       }
-      setShowGameOver(true);
     } catch (error) {
       console.error("Error in bot vs bot games:", error);
     } finally {
@@ -367,7 +398,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       {gameType === "bot-vs-bot" && (
         <div className="flex flex-col ml-8 p-4 text-white rounded-lg w-64 justify-center items-center">
           <h3 className="text-lg font-bold mb-4">Settings</h3>
-          <div className="flex flex-row gap-5 w-full">
+          <div className="flex flex-row justify-center items-center gap-5 w-full">
             <BotSettings
               botName="Yellow Bot"
               color="yellow"

@@ -40,15 +40,19 @@ const BotSettings: React.FC<BotSettingsProps> = ({
         onValueChange={(value) =>
           setAlgorithm((prev) => ({ ...prev, [algoKey]: value }))
         }
-        defaultValue="mcts"
+        defaultValue="mcts-binary"
       >
         <SelectTrigger className="w-full bg-gray-700 text-white">
           <SelectValue placeholder="Select algorithm" />
         </SelectTrigger>
         <SelectContent className="bg-gray-700 text-white">
-          <SelectItem value="mcts">MCTS</SelectItem>
           <SelectItem value="minimax">Minimax</SelectItem>
           <SelectItem value="random">Random</SelectItem>
+          <SelectItem value="mcts-binary">MCTS Binary</SelectItem>
+          <SelectItem value="mcts-binary-dk">MCTS Binary DK</SelectItem>
+          <SelectItem value="mcts-fractional">MCTS Fractional</SelectItem>
+          <SelectItem value="mcts-fractional-dk">MCTS Fractional DK</SelectItem>
+          <SelectItem value="mcts-minimax">MCTS Minimax</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -62,7 +66,7 @@ const BotSettings: React.FC<BotSettingsProps> = ({
         onChange={(e) =>
           setIterations((prev) => ({
             ...prev,
-            [algoKey]: Math.max(1, parseInt(e.target.value) || 300),
+            [algoKey]: Math.max(1, parseInt(e.target.value) || 100),
           }))
         }
         min={1}
