@@ -17,6 +17,7 @@ import {
 import { GameState, Side, Position, BoardState } from "../types";
 import { Input } from "@/ui/input";
 import BotSettings from "../components/BotSetting";
+import { error } from "console";
 
 interface GameScreenProps {
   boardLayout: number;
@@ -151,7 +152,6 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       let gameOver = false;
 
       while (!gameOver) {
-        console.log("Current Player:", currentPlayer);
         const validMoves = getAllValidMoves(tempBoard, currentPlayer);
         if (validMoves.length === 0) {
           currentPlayer = currentPlayer === "yellow" ? "red" : "yellow";
@@ -165,11 +165,16 @@ const GameScreen: React.FC<GameScreenProps> = () => {
           iterations[currentPlayer]
         );
 
+        if (!moveData) {
+          console.error("Error fetching bot move");
+          break;
+        }
+
         if (moveData) {
-          const { from, to } = moveData;
-          tempBoard = makeMove(tempBoard, from, to, currentPlayer);
+          const { from, to } = moveData.move;
+          tempBoard = makeMove(tempBoard, from, to, moveData.current_player);
           moves.push({ from, to });
-          currentPlayer = currentPlayer === "yellow" ? "red" : "yellow";
+          currentPlayer = moveData.current_player === "yellow" ? "red" : "yellow";
 
           setGameState((prev) => ({
             ...prev,
