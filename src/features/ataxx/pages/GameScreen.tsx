@@ -120,7 +120,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     iterations: number
   ) => {
     const endpoint = `${API_URL}${
-      API_URL.includes("vercel") ? "/bot_move/" : "/bot_move"
+      API_URL.includes("vercel") ? "/bot_move/" : "/bot_move/"
     }`;
     try {
       const response = await fetch(endpoint, {
