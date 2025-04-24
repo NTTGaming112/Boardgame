@@ -17,7 +17,6 @@ import {
 import { GameState, Side, Position, BoardState } from "../types";
 import { Input } from "@/ui/input";
 import BotSettings from "../components/BotSetting";
-import { error } from "console";
 
 interface GameScreenProps {
   boardLayout: number;
