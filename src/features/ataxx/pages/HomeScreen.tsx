@@ -1,4 +1,3 @@
-// src/features/ataxx/pages/HomeScreen.tsx
 import { Button } from "@/ui/button";
 import { useNavigate } from "react-router-dom";
 

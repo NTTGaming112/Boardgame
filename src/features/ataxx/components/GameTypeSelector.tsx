@@ -19,15 +19,6 @@ const GameTypeSelector: React.FC<GameTypeSelectorProps> = ({
         onValueChange={onGameTypeChange}
         className="flex justify-center space-x-4"
       >
-        {/* <div className="flex items-center space-x-2">
-          <RadioGroupItem value="single" id="single" />
-          <Label htmlFor="single">
-            <div className="flex items-center space-x-1">
-              <span className="text-2xl">👤</span>
-              <span className="text-2xl">💻</span>
-            </div>
-          </Label>
-        </div> */}
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="multi" id="multi" />
           <Label htmlFor="multi">

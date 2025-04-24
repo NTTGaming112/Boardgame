@@ -12,8 +12,9 @@ import {
   checkGameOver,
   determineWinner,
   hasValidMoves,
+  getAllValidMoves,
 } from "../gameLogic/ataxxLogic";
-import { GameState, Side, Position } from "../types";
+import { GameState, Side, Position, BoardState } from "../types";
 import { Input } from "@/ui/input";
 import BotSettings from "../components/BotSetting";
 
@@ -37,6 +38,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     gameOver: false,
     winner: null,
   });
+
   const [showGameOver, setShowGameOver] = useState(false);
   const [moveHistory, setMoveHistory] = useState<
     { from: Position; to: Position }[]
@@ -47,24 +49,17 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     red: "mcts-binary",
   });
   const [iterations, setIterations] = useState<{ yellow: number; red: number }>(
-    {
-      yellow: 100,
-      red: 100,
-    }
+    { yellow: 100, red: 100 }
   );
   const [isPlayingBotVsBot, setIsPlayingBotVsBot] = useState(false);
-  const [scoreboard, setScoreboard] = useState<{
-    yellowWins: number;
-    redWins: number;
-    draws: number;
-  }>({
+  const [scoreboard, setScoreboard] = useState({
     yellowWins: 0,
     redWins: 0,
     draws: 0,
   });
   const [gameResults, setGameResults] = useState<
     {
-      winner: string;
+      winner: string | null;
       scores: { yellowScore: number; redScore: number };
       moves: any[];
     }[]
@@ -72,7 +67,6 @@ const GameScreen: React.FC<GameScreenProps> = () => {
 
   const API_URL = import.meta.env.VITE_API_URL;
 
-  // Tính điểm
   useEffect(() => {
     const scores = calculateScores(gameState.board);
     setGameState((prev) => ({
@@ -82,7 +76,6 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     }));
   }, [gameState.board]);
 
-  // Hàm lưu game vào backend
   const saveGameToBackend = async (winner: string | null, moves: any[]) => {
     const saveEndpoint = `${API_URL}${
       API_URL.includes("vercel") ? "/save_game" : "/save_game/"
@@ -90,7 +83,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
 
     const boardStates = [
       initializeBoard(boardLayout),
-      ...moves.map((move, i) => {
+      ...moves.map((_, i) => {
         let board = initializeBoard(boardLayout);
         for (let j = 0; j <= i; j++) {
           const { from, to } = moves[j];
@@ -106,7 +99,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     }));
 
     try {
-      const response = await fetch(saveEndpoint, {
+      await fetch(saveEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -115,124 +108,98 @@ const GameScreen: React.FC<GameScreenProps> = () => {
           winner: winner || "draw",
         }),
       });
-      const data = await response.json();
-      console.log("Save game response:", data);
     } catch (err) {
       console.error("Error saving game:", err);
     }
   };
 
-  // Hàm gọi API play_bot_vs_bot
-  const fetchBotVsBotGame = async () => {
+  const fetchBotMove = async (
+    board: BoardState,
+    current_player: Side,
+    algorithm: string,
+    iterations: number
+  ) => {
     const endpoint = `${API_URL}${
-      API_URL.includes("vercel") ? "/play_bot_vs_bot/" : "/play_bot_vs_bot"
+      API_URL.includes("vercel") ? "/bot_move/" : "/bot_move"
     }`;
-
     try {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          board: initializeBoard(boardLayout),
-          yellow: {
-            algorithm: algorithm.yellow,
-            iterations: iterations.yellow,
-          },
-          red: {
-            algorithm: algorithm.red,
-            iterations: iterations.red,
-          },
-        }),
+        body: JSON.stringify({ board, current_player, algorithm, iterations }),
       });
-
       const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (data.error) throw new Error(data.error);
       return data;
     } catch (err) {
-      console.error(`Error playing bot vs bot game:`, err);
+      console.error(`Error fetching bot move:`, err);
       return null;
     }
   };
 
-  // Hàm replay các nước đi từ API
-  const replayMoves = async (
-    moves: { player: Side; move: { from: Position; to: Position } }[]
-  ) => {
-    let tempBoard = initializeBoard(boardLayout);
-    setMoveHistory([]); // Reset move history
-    setGameState((prev) => ({
-      ...prev,
-      board: tempBoard,
-      currentPlayer: "yellow",
-      gameOver: false,
-      winner: null,
-    }));
+  const handleStartBot = async () => {
+    if (numGames < 1) return;
+    resetGameState();
+    setIsPlayingBotVsBot(true);
 
-    for (let i = 0; i < moves.length; i++) {
-      const { player, move } = moves[i];
-      const { from, to } = move;
+    const newResults = [];
 
-      // Cập nhật bàn cờ
-      tempBoard = makeMove(tempBoard, from, to, player);
-      setGameState((prev) => ({
-        ...prev,
-        board: tempBoard,
-        currentPlayer: player === "yellow" ? "red" : "yellow",
-      }));
-      setMoveHistory((prev) => [...prev, { from, to }]);
+    for (let i = 0; i < numGames; i++) {
+      let tempBoard = initializeBoard(boardLayout);
+      let currentPlayer: Side = "yellow";
+      let moves: { from: Position; to: Position }[] = [];
+      let gameOver = false;
 
-      // Chờ 1 giây để hiển thị nước đi
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
+      while (!gameOver) {
+        console.log("Current Player:", currentPlayer);
+        const validMoves = getAllValidMoves(tempBoard, currentPlayer);
+        if (validMoves.length === 0) {
+          currentPlayer = currentPlayer === "yellow" ? "red" : "yellow";
+          continue;
+        }
 
-    // Kiểm tra game over sau khi replay xong
-    if (checkGameOver(tempBoard)) {
+        const moveData = await fetchBotMove(
+          tempBoard,
+          currentPlayer,
+          algorithm[currentPlayer],
+          iterations[currentPlayer]
+        );
+
+        if (moveData) {
+          const { from, to } = moveData;
+          tempBoard = makeMove(tempBoard, from, to, currentPlayer);
+          moves.push({ from, to });
+          currentPlayer = currentPlayer === "yellow" ? "red" : "yellow";
+
+          setGameState((prev) => ({
+            ...prev,
+            board: tempBoard,
+            currentPlayer,
+          }));
+
+          setMoveHistory((prev) => [...prev, { from, to }]);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+
+        gameOver = checkGameOver(tempBoard);
+      }
+
       const winner = determineWinner(tempBoard);
-      setGameState((prev) => ({
-        ...prev,
-        gameOver: true,
+      const scores = calculateScores(tempBoard);
+      newResults.push({
         winner,
-      }));
-      setShowGameOver(true);
+        scores: {
+          yellowScore: scores.yellowScore,
+          redScore: scores.redScore,
+        },
+        moves,
+      });
     }
+
+    setGameResults(newResults);
+    updateScoreboard(newResults);
+    setIsPlayingBotVsBot(false);
   };
-
-  // Khi kết thúc game (chỉ áp dụng cho chế độ multi)
-  useEffect(() => {
-    if (gameType !== "multi" || gameState.gameOver) return;
-
-    if (checkGameOver(gameState.board)) {
-      const winner = determineWinner(gameState.board);
-      setGameState((prev) => ({
-        ...prev,
-        gameOver: true,
-        winner,
-      }));
-      setShowGameOver(true);
-
-      saveGameToBackend(winner, moveHistory);
-    }
-  }, [gameState.board, gameType]);
-
-  // Kiểm tra và chuyển lượt nếu người chơi hiện tại không có nước đi hợp lệ (chế độ multi)
-  useEffect(() => {
-    if (gameType !== "multi" || gameState.gameOver) return;
-
-    const currentPlayerHasMoves = hasValidMoves(
-      gameState.board,
-      gameState.currentPlayer
-    );
-    if (!currentPlayerHasMoves) {
-      const nextPlayer =
-        gameState.currentPlayer === "yellow" ? "red" : "yellow";
-      setGameState((prev) => ({
-        ...prev,
-        currentPlayer: nextPlayer,
-      }));
-    }
-  }, [gameState.board, gameState.currentPlayer, gameState.gameOver, gameType]);
 
   const handleMove = (from: Position, to: Position) => {
     if (gameType !== "multi" || gameState.gameOver) return;
@@ -246,6 +213,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       );
       const nextPlayer =
         gameState.currentPlayer === "yellow" ? "red" : "yellow";
+
       setGameState((prev) => ({
         ...prev,
         board: newBoard,
@@ -254,6 +222,26 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       setMoveHistory((prev) => [...prev, { from, to }]);
     }
   };
+
+  useEffect(() => {
+    if (gameType !== "multi" || gameState.gameOver) return;
+
+    if (checkGameOver(gameState.board)) {
+      const winner = determineWinner(gameState.board);
+      setGameState((prev) => ({ ...prev, gameOver: true, winner }));
+      setShowGameOver(true);
+      saveGameToBackend(winner, moveHistory);
+    }
+  }, [gameState.board]);
+
+  useEffect(() => {
+    if (gameType !== "multi" || gameState.gameOver) return;
+    if (!hasValidMoves(gameState.board, gameState.currentPlayer)) {
+      const nextPlayer =
+        gameState.currentPlayer === "yellow" ? "red" : "yellow";
+      setGameState((prev) => ({ ...prev, currentPlayer: nextPlayer }));
+    }
+  }, [gameState.board, gameState.currentPlayer]);
 
   const resetGameState = () => {
     setGameState({
@@ -271,60 +259,17 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     setIsPlayingBotVsBot(false);
   };
 
-  const handleRestart = () => {
-    resetGameState();
-  };
-
+  const handleRestart = () => resetGameState();
   const handleBack = () => navigate("/setup");
 
-  const updateScoreboard = (results: { winner: string }[]) => {
-    const newScoreboard = {
-      yellowWins: 0,
-      redWins: 0,
-      draws: 0,
-    };
-
-    results.forEach((result) => {
-      if (result.winner === "yellow") newScoreboard.yellowWins += 1;
-      else if (result.winner === "red") newScoreboard.redWins += 1;
-      else newScoreboard.draws += 1;
+  const updateScoreboard = (results: { winner: string | null }[]) => {
+    const newScoreboard = { yellowWins: 0, redWins: 0, draws: 0 };
+    results.forEach((r) => {
+      if (r.winner === "yellow") newScoreboard.yellowWins++;
+      else if (r.winner === "red") newScoreboard.redWins++;
+      else newScoreboard.draws++;
     });
-
     setScoreboard(newScoreboard);
-  };
-
-  const handleStartBotVsBot = async () => {
-    if (numGames < 1) return;
-    console.log(algorithm, iterations);
-    setIsPlayingBotVsBot(true);
-    setGameResults([]);
-    setScoreboard({ yellowWins: 0, redWins: 0, draws: 0 });
-
-    try {
-      const results: typeof gameResults = [];
-      for (let i = 0; i < numGames; i++) {
-        const result = await fetchBotVsBotGame();
-        if (result) {
-          // Replay các nước đi
-          await replayMoves(result.moves);
-
-          // Cập nhật kết quả
-          results.push(result);
-          setGameResults(results);
-          updateScoreboard(results);
-
-          // Lưu game vào backend
-          await saveGameToBackend(result.winner, result.moves);
-
-          // Chờ 2 giây trước khi bắt đầu ván tiếp theo
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-      }
-    } catch (error) {
-      console.error("Error in bot vs bot games:", error);
-    } finally {
-      setIsPlayingBotVsBot(false);
-    }
   };
 
   return (
@@ -433,7 +378,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
           </div>
 
           <Button
-            onClick={handleStartBotVsBot}
+            onClick={handleStartBot}
             disabled={isPlayingBotVsBot}
             className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
           >

@@ -6,7 +6,7 @@ interface BoardProps {
   board: BoardState;
   currentPlayer: Side;
   onMove: (from: Position, to: Position) => void;
-  gameType: "single" | "multi" | "bot-vs-bot";
+  gameType: "multi" | "bot-vs-bot";
   playerSide: Side;
 }
 
@@ -14,7 +14,6 @@ const Board: React.FC<BoardProps> = ({
   board,
   currentPlayer,
   onMove,
-  gameType,
   playerSide,
 }) => {
   const [selected, setSelected] = useState<Position | null>(null);
@@ -23,14 +22,6 @@ const Board: React.FC<BoardProps> = ({
   const handleCellClick = (row: number, col: number) => {
     const clickedPosition = { row, col };
     const cell = board[row][col];
-
-    // Trong single player, không cho phép nhấn vào ô của bot
-    if (gameType === "single") {
-      const botSide = playerSide === "yellow" ? "red" : "yellow";
-      if (cell === botSide) {
-        return; // Chặn sự kiện nhấn
-      }
-    }
 
     if (selected) {
       const isValid = validMoves.some(
@@ -62,7 +53,6 @@ const Board: React.FC<BoardProps> = ({
         <div key={rowIndex} className="flex gap-1">
           {row.map((cell, colIndex) => {
             const isBotCell =
-              gameType === "single" &&
               currentPlayer === playerSide &&
               cell === (playerSide === "yellow" ? "red" : "yellow");
 

@@ -14,6 +14,9 @@ const NEIGHBOR_OFFSETS = [
   [1, 1],
 ] as const;
 
+const cloneBoard = (board: BoardState): BoardState =>
+  board.map((row) => [...row]);
+
 // Khởi tạo bàn cờ dựa trên layoutId
 export const initializeBoard = (layoutId: number): BoardState => {
   const layout = layouts[layoutId];
@@ -54,7 +57,6 @@ export const isValidMove = (
   const { row: fromRow, col: fromCol } = from;
   const { row: toRow, col: toCol } = to;
 
-  // Kiểm tra vị trí nguồn và đích
   if (
     board[fromRow][fromCol] !== currentPlayer ||
     board[toRow][toCol] !== "empty"
@@ -62,14 +64,12 @@ export const isValidMove = (
     return false;
   }
 
-  // Kiểm tra khoảng cách (bán kính 2)
   const rowDiff = Math.abs(fromRow - toRow);
   const colDiff = Math.abs(fromCol - toCol);
   if (rowDiff > MAX_MOVE_DISTANCE || colDiff > MAX_MOVE_DISTANCE) {
     return false;
   }
 
-  // Kiểm tra vị trí đích có nằm trong bàn cờ không
   return isValidPosition(toRow, toCol);
 };
 
@@ -99,13 +99,33 @@ export const getValidMoves = (
   return validMoves;
 };
 
+// Lấy tất cả nước đi hợp lệ cho người chơi
+export const getAllValidMoves = (
+  board: BoardState,
+  player: Side
+): { from: Position; to: Position }[] => {
+  const allMoves: { from: Position; to: Position }[] = [];
+
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    for (let col = 0; col < BOARD_SIZE; col++) {
+      if (board[row][col] === player) {
+        const from: Position = { row, col };
+        const possibleTo = getValidMoves(board, from, player);
+        possibleTo.forEach((to) => allMoves.push({ from, to }));
+      }
+    }
+  }
+
+  return allMoves;
+};
+
 // Chuyển đổi các quân cờ lân cận thành màu của người chơi
 export const captureNeighbors = (
   board: BoardState,
   to: Position,
   currentPlayer: Side
 ): BoardState => {
-  const newBoard = board.map((row) => [...row]);
+  const newBoard = cloneBoard(board);
   const { row: toRow, col: toCol } = to;
 
   for (const [dr, dc] of NEIGHBOR_OFFSETS) {
@@ -130,14 +150,13 @@ export const makeMove = (
   to: Position,
   currentPlayer: Side
 ): BoardState => {
-  const newBoard = board.map((row) => [...row]);
+  const newBoard = cloneBoard(board);
   const { row: fromRow, col: fromCol } = from;
   const { row: toRow, col: toCol } = to;
 
   const rowDiff = Math.abs(fromRow - toRow);
   const colDiff = Math.abs(fromCol - toCol);
 
-  // Nhân bản nếu ô đích trong bán kính 1, di chuyển nếu trong bán kính 2
   if (rowDiff <= 1 && colDiff <= 1) {
     newBoard[toRow][toCol] = currentPlayer;
   } else {
@@ -171,9 +190,10 @@ export const isBoardFull = (board: BoardState): boolean => {
 export const checkGameOver = (board: BoardState): boolean => {
   const { yellowScore, redScore } = calculateScores(board);
   return (
+    yellowScore === 0 ||
+    redScore === 0 ||
     isBoardFull(board) ||
-    (!hasValidMoves(board, "yellow") && !hasValidMoves(board, "red")) ||
-    (yellowScore === 0 || redScore === 0)
+    (!hasValidMoves(board, "yellow") && !hasValidMoves(board, "red"))
   );
 };
 
