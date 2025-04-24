@@ -26,7 +26,7 @@ const BoardSelector: React.FC<BoardSelectorProps> = ({
                 : "border-0 opacity-50"
             } border-2 border-white bg-cover`}
             style={{
-              backgroundImage: `url(/src/assets/map${id}_bg.png)`,
+              backgroundImage: `url(/map_bg/map${id}_bg.png)`,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }}
