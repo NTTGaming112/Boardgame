@@ -40,9 +40,9 @@ const GameScreen: React.FC<GameScreenProps> = () => {
   });
 
   const [showGameOver, setShowGameOver] = useState(false);
-  const [moveHistory, setMoveHistory] = useState<
-    { from: Position; to: Position }[]
-  >([]);
+  // const [moveHistory, setMoveHistory] = useState<
+  //   { from: Position; to: Position }[]
+  // >([]);
   const [numGames, setNumGames] = useState<number>(1);
   const [algorithm, setAlgorithm] = useState<{ yellow: string; red: string }>({
     yellow: "mcts-binary",
@@ -76,42 +76,42 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     }));
   }, [gameState.board]);
 
-  const saveGameToBackend = async (winner: string | null, moves: any[]) => {
-    const saveEndpoint = `${API_URL}${
-      API_URL.includes("vercel") ? "/save_game" : "/save_game/"
-    }`;
+  // const saveGameToBackend = async (winner: string | null, moves: any[]) => {
+  //   const saveEndpoint = `${API_URL}${
+  //     API_URL.includes("vercel") ? "/save_game" : "/save_game/"
+  //   }`;
 
-    const boardStates = [
-      initializeBoard(boardLayout),
-      ...moves.map((_, i) => {
-        let board = initializeBoard(boardLayout);
-        for (let j = 0; j <= i; j++) {
-          const { from, to } = moves[j];
-          board = makeMove(board, from, to, j % 2 === 0 ? "yellow" : "red");
-        }
-        return board;
-      }),
-    ];
+  //   const boardStates = [
+  //     initializeBoard(boardLayout),
+  //     ...moves.map((_, i) => {
+  //       let board = initializeBoard(boardLayout);
+  //       for (let j = 0; j <= i; j++) {
+  //         const { from, to } = moves[j];
+  //         board = makeMove(board, from, to, j % 2 === 0 ? "yellow" : "red");
+  //       }
+  //       return board;
+  //     }),
+  //   ];
 
-    const formattedMoves = moves.map((m) => ({
-      from_pos: m.from,
-      to_pos: m.to,
-    }));
+  //   const formattedMoves = moves.map((m) => ({
+  //     from_pos: m.from,
+  //     to_pos: m.to,
+  //   }));
 
-    try {
-      await fetch(saveEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          board_states: boardStates,
-          moves: formattedMoves,
-          winner: winner || "draw",
-        }),
-      });
-    } catch (err) {
-      console.error("Error saving game:", err);
-    }
-  };
+  //   try {
+  //     await fetch(saveEndpoint, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         board_states: boardStates,
+  //         moves: formattedMoves,
+  //         winner: winner || "draw",
+  //       }),
+  //     });
+  //   } catch (err) {
+  //     console.error("Error saving game:", err);
+  //   }
+  // };
 
   const fetchBotMove = async (
     board: BoardState,
@@ -120,7 +120,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
     iterations: number
   ) => {
     const endpoint = `${API_URL}${
-      API_URL.includes("vercel") ? "/bot_move/" : "/bot_move/"
+      API_URL.includes("vercel") ? "/get_move/" : "/get_move/"
     }`;
     try {
       const response = await fetch(endpoint, {
@@ -181,7 +181,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
             currentPlayer,
           }));
 
-          setMoveHistory((prev) => [...prev, { from, to }]);
+          // setMoveHistory((prev) => [...prev, { from, to }]);
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
@@ -223,7 +223,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
         board: newBoard,
         currentPlayer: nextPlayer,
       }));
-      setMoveHistory((prev) => [...prev, { from, to }]);
+      // setMoveHistory((prev) => [...prev, { from, to }]);
     }
   };
 
@@ -234,7 +234,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       const winner = determineWinner(gameState.board);
       setGameState((prev) => ({ ...prev, gameOver: true, winner }));
       setShowGameOver(true);
-      saveGameToBackend(winner, moveHistory);
+      // saveGameToBackend(winner, moveHistory);
     }
   }, [gameState.board]);
 
@@ -256,7 +256,7 @@ const GameScreen: React.FC<GameScreenProps> = () => {
       gameOver: false,
       winner: null,
     });
-    setMoveHistory([]);
+    // setMoveHistory([]);
     setShowGameOver(false);
     setGameResults([]);
     setScoreboard({ yellowWins: 0, redWins: 0, draws: 0 });

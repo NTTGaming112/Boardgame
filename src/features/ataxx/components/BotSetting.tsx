@@ -46,13 +46,13 @@ const BotSettings: React.FC<BotSettingsProps> = ({
           <SelectValue placeholder="Select algorithm" />
         </SelectTrigger>
         <SelectContent className="bg-gray-700 text-white">
-          <SelectItem value="minimax">Minimax</SelectItem>
+          <SelectItem value="minimax2">Minimax</SelectItem>
           <SelectItem value="random">Random</SelectItem>
           <SelectItem value="mcts-binary">MCTS Binary</SelectItem>
           <SelectItem value="mcts-binary-dk">MCTS Binary DK</SelectItem>
           <SelectItem value="mcts-fractional">MCTS Fractional</SelectItem>
           <SelectItem value="mcts-fractional-dk">MCTS Fractional DK</SelectItem>
-          <SelectItem value="mcts-minimax">MCTS Minimax</SelectItem>
+          <SelectItem value="mcts-binary-minimax2">MCTS Minimax</SelectItem>
         </SelectContent>
       </Select>
     </div>
